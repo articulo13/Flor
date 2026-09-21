@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rosa Amarilla 3D</title>
+    <!-- Fuentes elegantes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            /* Fondo de jardín desenfocado */
+            background: radial-gradient(circle at 60% 35%, #2a4531 0%, #172d1f 55%, #0c1810 100%);
+            font-family: 'Montserrat', sans-serif;
+            touch-action: none;
+        }
+
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            display: block;
+        }
+
+        /* Pantalla inicial para habilitar el audio */
+        #overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 22, 14, 0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.8s ease, visibility 0.8s;
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+        }
+        #overlay h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            font-weight: 400;
+            margin-bottom: 25px;
+            color: #fff2bf;
+        }
+        .btn-open {
+            padding: 16px 45px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #122215;
+            background: linear-gradient(135deg, #f5d461, #e6ad20);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s ease;
+        }
+        .btn-open:hover {
+            transform: scale(1.05);
+        }
+
+        /* Tarjeta superior Glassmorphism */
+        #card-container {
+            position: absolute;
+            top: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 90%;
+            max-width: 420px;
+            padding: 16px 24px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 18px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+            text-align: center;
+            pointer-events: none;
+        }
+        #main-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: #ffffff;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+        }
+        #subtitle {
+            margin-top: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        /* Botón de Captura / Descargar Postal */
+        #postcard-btn {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(14, 30, 20, 0.75);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            color: #fff6c7;
+            padding: 12px 26px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        #postcard-btn:hover {
+            background: rgba(255, 215, 0, 0.25);
+            border-color: #ffd700;
+            transform: translateX(-50%) scale(1.05);
+            color: #ffffff;
+        }
+        #postcard-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: #ffd700;
+        }
+
+        /* Notificación de descarga */
+        #toast {
+            position: fixed;
+            bottom: 85px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffe066;
+            color: #0d1e12;
+            padding: 10px 22px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- PANTALLA DE APERTURA -->
+    <div id="overlay">
+        <h2>Un detalle especial para vos</h2>
+        <button class="btn-open" id="start-btn">Tocar para abrir 🌹</button>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 1. AQUÍ EDITAS EL TEXTO DIRECTAMENTE EN VS CODE:                -->
+    <!-- ============================================================== -->
+    <div id="card-container">
+        <div id="main-title">PARA ALGUIEN ESPECIAL, ME ENCANTAN TUS RAICES</div>
+        <div id="subtitle">FELIZ 21 DE SEPTIEMBRE JAVIER EDUARDO MATTA MANZANO🌻</div>
+    </div>
+
+    <!-- BOTÓN DE DESCARGAR POSTAL -->
+    <button id="postcard-btn">
+        <svg viewBox="0 0 24 24"><path d="M4 4h3l2-2h6l2 2h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+        Guardar Postal
+    </button>
+
+    <div id="toast">¡Postal guardada con éxito! 📸</div>
+
+    <!-- ============================================================== -->
+    <!-- 2. AQUÍ COLOCAS TU ARCHIVO DE MÚSICA:                          -->
+    <!-- Guarda tu archivo mp3 en la misma carpeta que este index.html  -->
+    <!-- y escribe aquí su nombre exacto (por ejemplo: cancion.mp3)     -->
+    <!-- ============================================================== -->
+    <audio id="bg-audio" loop preload="auto">
+        <source src="floresamarillas.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Three.js y OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- CONTROL DE AUDIO ---
+        const startBtn = document.getElementById('start-btn');
+        const overlay = document.getElementById('overlay');
+        const audio = document.getElementById('bg-audio');
+
+        startBtn.addEventListener('click', () => {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.visibility = 'hidden', 800);
+            audio.play().catch(e => console.log("Audio en espera del archivo cancion.mp3"));
+        });
+
+        // --- ESCENA 3D ---
+        const canvas = document.getElementById('webgl-canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0.3, 8.8);
+
+        // preserveDrawingBuffer: true permite hacer la captura de pantalla sin pantalla negra
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas, 
+            antialias: true, 
+            alpha: true, 
+            preserveDrawingBuffer: true 
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 4.5;
+        controls.maxDistance = 12;
+        controls.target.set(0, -0.2, 0);
+
+        // --- ILUMINACIÓN CÁLIDA NATURAL ---
+        const ambientLight = new THREE.AmbientLight(0xfff7ea, 0.85);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff5e0, 0.9);
+        sunLight.position.set(4, 8, 6);
+        scene.add(sunLight);
+
+        const fillLight = new THREE.DirectionalLight(0xaad2ba, 0.35);
+        fillLight.position.set(-6, 2, -3);
+        scene.add(fillLight);
+
+        // --- TEXTURA BOTÁNICA ATERCIOPELADA ---
+        function createVelvetTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+
+            const grad = ctx.createRadialGradient(256, 490, 15, 256, 256, 360);
+            grad.addColorStop(0.0, '#c77e18');  // Base interior ámbar
+            grad.addColorStop(0.3, '#dfa528');
+            grad.addColorStop(0.7, '#edd053');
+            grad.addColorStop(1.0, '#f9e88b');  // Borde suave
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.strokeStyle = 'rgba(180, 110, 20, 0.08)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 60; i++) {
+                ctx.beginPath();
+                ctx.moveTo(256 + (Math.random() - 0.5) * 60, 510);
+                ctx.quadraticCurveTo(
+                    256 + (Math.random() - 0.5) * 200,
+                    260 + Math.random() * 80,
+                    Math.random() * 512,
+                    Math.random() * 80
+                );
+                ctx.stroke();
+            }
+
+            return new THREE.CanvasTexture(c);
+        }
+
+        const petalTex = createVelvetTexture();
+
+        const petalMaterial = new THREE.MeshStandardMaterial({
+            map: petalTex,
+            roughness: 0.65,
+            metalness: 0.0,
+            side: THREE.DoubleSide
+        });
+
+        const stemMaterial = new THREE.MeshStandardMaterial({
+            color: 0x244f2b,
+            roughness: 0.7,
+            metalness: 0.05,
+            side: THREE.DoubleSide
+        });
+
+        // ==============================================================
+        // GEOMETRÍA DE PÉTALO ANCLADA A LA BASE
+        // ==============================================================
+        function createAnchoredPetalGeometry(width, height, cupDepth, reflexAmount) {
+            const segX = 26, segY = 26;
+            const geo = new THREE.PlaneGeometry(width, height, segX, segY);
+            geo.translate(0, height / 2, 0);
+
+            const pos = geo.attributes.position;
+
+            for (let i = 0; i < pos.count; i++) {
+                let x = pos.getX(i);
+                let y = pos.getY(i);
+
+                let v = y / height;
+                let u = x / (width * 0.5);
+
+                let taper = Math.sin(v * Math.PI * 0.5);
+                x = u * (width * 0.5) * (0.15 + 0.85 * taper);
+
+                let z = Math.sin(v * Math.PI * 0.9) * cupDepth * (1.0 - u * u * 0.6);
+
+                if (v > 0.45) {
+                    let reflexFactor = Math.pow((v - 0.45) / 0.55, 1.6);
+                    z -= reflexAmount * reflexFactor;
+                }
+
+                pos.setXYZ(i, x, y, z);
+            }
+
+            geo.computeVertexNormals();
+            return geo;
+        }
+
+        const flowerGroup = new THREE.Group();
+
+        // Receptáculo botánico (cáliz verde inferior)
+        const calyxGeo = new THREE.SphereGeometry(0.55, 20, 16);
+        calyxGeo.scale(1, 1, 0.7);
+        const calyx = new THREE.Mesh(calyxGeo, stemMaterial);
+        calyx.position.set(0, 0, -0.15);
+        flowerGroup.add(calyx);
+
+        // Capas concéntricas de la rosa
+        for (let c = 0; c < 8; c++) {
+            const coreGeo = createAnchoredPetalGeometry(0.55, 1.0, 0.35, 0.05);
+            const corePetal = new THREE.Mesh(coreGeo, petalMaterial);
+            const angle = c * 2.399;
+            const radius = 0.08 + c * 0.025;
+            corePetal.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.3 - c * 0.02);
+            corePetal.rotation.z = angle - Math.PI / 2;
+            corePetal.rotation.x = -0.3;
+            flowerGroup.add(corePetal);
+        }
+
+        for (let m = 0; m < 12; m++) {
+            const midGeo = createAnchoredPetalGeometry(1.0, 1.5, 0.45, 0.25);
+            const midPetal = new THREE.Mesh(midGeo, petalMaterial);
+            const angle = m * 2.399 + 0.6;
+            const radius = 0.22 + m * 0.035;
+            midPetal.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.15 - m * 0.02);
+            midPetal.rotation.z = angle - Math.PI / 2;
+            midPetal.rotation.x = -0.65 - (m * 0.025);
+            flowerGroup.add(midPetal);
+        }
+
+        for (let o = 0; o < 14; o++) {
+            const outGeo = createAnchoredPetalGeometry(1.6, 2.0, 0.4, 0.65);
+            const outPetal = new THREE.Mesh(outGeo, petalMaterial);
+            const angle = o * 2.399 + 1.2;
+            const radius = 0.55 + o * 0.035;
+            outPetal.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, -0.05);
+            outPetal.rotation.z = angle - Math.PI / 2;
+            outPetal.rotation.x = -1.15;
+            flowerGroup.add(outPetal);
+        }
+
+        // Sépalos verdes
+        for (let s = 0; s < 5; s++) {
+            const sAngle = (s / 5) * Math.PI * 2;
+            const sepalGeo = new THREE.ConeGeometry(0.18, 1.7, 8);
+            sepalGeo.scale(1, 1, 0.2);
+            const sepal = new THREE.Mesh(sepalGeo, stemMaterial);
+            sepal.position.set(Math.cos(sAngle) * 0.5, Math.sin(sAngle) * 0.5, -0.2);
+            sepal.rotation.z = sAngle - Math.PI / 2;
+            sepal.rotation.x = Math.PI / 2.5;
+            flowerGroup.add(sepal);
+        }
+
+        // Tallo principal
+        const stemCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(0, 0, -0.25),
+            new THREE.Vector3(0.04, -1.0, -0.5),
+            new THREE.Vector3(-0.04, -2.4, -0.8),
+            new THREE.Vector3(0.02, -4.2, -1.2)
+        ]);
+        const stemGeo = new THREE.TubeGeometry(stemCurve, 32, 0.1, 12, false);
+        const mainStem = new THREE.Mesh(stemGeo, stemMaterial);
+        flowerGroup.add(mainStem);
+
+        // Espinas
+        function createThorn(x, y, z, rotZ) {
+            const thornGeo = new THREE.ConeGeometry(0.08, 0.3, 8);
+            const thornMat = new THREE.MeshStandardMaterial({ color: 0x5a2d22, roughness: 0.7 });
+            const thorn = new THREE.Mesh(thornGeo, thornMat);
+            thorn.position.set(x, y, z);
+            thorn.rotation.z = rotZ;
+            thorn.rotation.x = Math.PI / 2.3;
+            flowerGroup.add(thorn);
+        }
+        createThorn(0.14, -1.4, -0.6, -Math.PI / 3);
+        createThorn(-0.14, -2.5, -0.85, Math.PI / 3);
+
+        // Rama y Pimpollo Superior
+        const budBranchCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.02, -1.8, -0.7),
+            new THREE.Vector3(0.7, -1.0, -0.9),
+            new THREE.Vector3(1.5, 0.2, -0.75),
+            new THREE.Vector3(1.4, 1.4, -0.45),
+            new THREE.Vector3(1.2, 2.1, -0.2)
+        ]);
+        const budBranchGeo = new THREE.TubeGeometry(budBranchCurve, 30, 0.06, 10, false);
+        const budBranch = new THREE.Mesh(budBranchGeo, stemMaterial);
+        flowerGroup.add(budBranch);
+
+        const topBud = new THREE.Group();
+        topBud.position.set(1.2, 2.1, -0.2);
+        topBud.rotation.z = -0.3;
+
+        for (let b = 0; b < 8; b++) {
+            const bGeo = createAnchoredPetalGeometry(0.5, 1.1, 0.3, 0.05);
+            const bPetal = new THREE.Mesh(bGeo, petalMaterial);
+            const bAngle = b * 2.4;
+            bPetal.position.set(Math.cos(bAngle) * 0.08, Math.sin(bAngle) * 0.08, b * 0.03);
+            bPetal.rotation.z = bAngle;
+            bPetal.rotation.x = -0.25;
+            topBud.add(bPetal);
+        }
+
+        for (let sb = 0; sb < 4; sb++) {
+            const sbAngle = (sb / 4) * Math.PI * 2;
+            const sbGeo = new THREE.ConeGeometry(0.1, 1.3, 6);
+            const sbMesh = new THREE.Mesh(sbGeo, stemMaterial);
+            sbMesh.position.set(Math.cos(sbAngle) * 0.15, Math.sin(sbAngle) * 0.15, -0.05);
+            sbMesh.rotation.z = sbAngle - Math.PI / 2;
+            sbMesh.rotation.x = 0.15;
+            topBud.add(sbMesh);
+        }
+        flowerGroup.add(topBud);
+
+        // Hojas
+        function createRoseLeaf(scale) {
+            const leafShape = new THREE.Shape();
+            leafShape.moveTo(0, 0);
+            leafShape.bezierCurveTo(0.4, 0.4, 0.5, 1.2, 0, 1.8);
+            leafShape.bezierCurveTo(-0.5, 1.2, -0.4, 0.4, 0, 0);
+            const leafGeo = new THREE.ShapeGeometry(leafShape);
+            const leaf = new THREE.Mesh(leafGeo, stemMaterial);
+            leaf.scale.set(scale, scale, scale);
+            return leaf;
+        }
+
+        const leaf1 = createRoseLeaf(0.55);
+        leaf1.position.set(1.4, 0.8, -0.6);
+        leaf1.rotation.set(0.2, 0.4, -Math.PI / 4);
+        flowerGroup.add(leaf1);
+
+        const leaf2 = createRoseLeaf(0.65);
+        leaf2.position.set(-0.5, -2.6, -0.85);
+        leaf2.rotation.set(0.2, -0.4, Math.PI / 2.8);
+        flowerGroup.add(leaf2);
+
+        // Anillo 360°
+        const ringGeo = new THREE.RingGeometry(2.6, 2.63, 64);
+        const ringMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffffff, 
+            opacity: 0.2, 
+            transparent: true, 
+            side: THREE.DoubleSide 
+        });
+        const orbitRing = new THREE.Mesh(ringGeo, ringMat);
+        orbitRing.position.set(0, -0.6, -0.6);
+        orbitRing.rotation.x = Math.PI / 2.3;
+        scene.add(orbitRing);
+
+        flowerGroup.position.set(-0.25, -0.2, 0);
+        flowerGroup.rotation.x = 0.2;
+        scene.add(flowerGroup);
+
+        // ==============================================================
+        // LUCIÉRNAGAS (SISTEMA DE PARTÍCULAS ORGÁNICAS CON BRILLO)
+        // ==============================================================
+        function createGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+            grad.addColorStop(0, 'rgba(255, 255, 200, 1)');      // Núcleo blanco/amarillo
+            grad.addColorStop(0.3, 'rgba(255, 220, 60, 0.8)');    // Resplandor dorado
+            grad.addColorStop(0.7, 'rgba(210, 255, 90, 0.25)');   // Tono cálido biológico
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 64);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const fireflyTex = createGlowTexture();
+        const fireflyGroup = new THREE.Group();
+        const fireflies = [];
+        const fireflyCount = 14;
+
+        for (let i = 0; i < fireflyCount; i++) {
+            const mat = new THREE.SpriteMaterial({
+                map: fireflyTex,
+                color: 0xfff7a8,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            const sprite = new THREE.Sprite(mat);
+            const scale = 0.18 + Math.random() * 0.15;
+            sprite.scale.set(scale, scale, 1);
+
+            const firefly = {
+                mesh: sprite,
+                baseX: (Math.random() - 0.5) * 5.5,
+                baseY: -2.5 + Math.random() * 5.0,
+                baseZ: (Math.random() - 0.5) * 4.0,
+                speedX: 0.3 + Math.random() * 0.5,
+                speedY: 0.4 + Math.random() * 0.6,
+                speedZ: 0.2 + Math.random() * 0.4,
+                phase: Math.random() * Math.PI * 2,
+                blinkFreq: 1.5 + Math.random() * 2.0
+            };
+
+            fireflyGroup.add(sprite);
+            fireflies.push(firefly);
+        }
+        scene.add(fireflyGroup);
+
+        // ==============================================================
+        // SISTEMA DE DESCARGA DE POSTAL (FOTO EN ALTA RESOLUCIÓN)
+        // ==============================================================
+        const postcardBtn = document.getElementById('postcard-btn');
+        const toast = document.getElementById('toast');
+
+        postcardBtn.addEventListener('click', () => {
+            // 1. Renderizamos la escena en el ángulo actual
+            renderer.render(scene, camera);
+
+            // 2. Creamos un canvas 2D para componer la foto con el marco y el texto
+            const postCanvas = document.createElement('canvas');
+            const w = renderer.domElement.width;
+            const h = renderer.domElement.height;
+            postCanvas.width = w;
+            postCanvas.height = h;
+            const ctx = postCanvas.getContext('2d');
+
+            // Dibujar fondo de jardín
+            const bgGrad = ctx.createRadialGradient(w * 0.6, h * 0.35, 10, w * 0.5, h * 0.5, Math.max(w, h));
+            bgGrad.addColorStop(0, '#2a4531');
+            bgGrad.addColorStop(0.55, '#172d1f');
+            bgGrad.addColorStop(1, '#0c1810');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Dibujar la rosa en 3D
+            ctx.drawImage(renderer.domElement, 0, 0);
+
+            // Dibujar tarjeta superior con el texto personalizado
+            const title = document.getElementById('main-title').innerText;
+            const subtitle = document.getElementById('subtitle').innerText;
+
+            const cardW = Math.min(w * 0.85, 520);
+            const cardH = 95;
+            const cardX = (w - cardW) / 2;
+            const cardY = 35;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.lineWidth = 2;
+
+            // Rectángulo redondeado estilo glassmorphism
+            ctx.beginPath();
+            ctx.roundRect ? ctx.roundRect(cardX, cardY, cardW, cardH, 20) : ctx.rect(cardX, cardY, cardW, cardH);
+            ctx.fill();
+            ctx.stroke();
+
+            // Texto Principal
+            ctx.font = '800 24px "Montserrat", sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+            ctx.shadowBlur = 10;
+            ctx.fillText(title, w / 2, cardY + 45);
+
+            // Subtítulo
+            ctx.font = '600 13px "Montserrat", sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillText(subtitle, w / 2, cardY + 74);
+            ctx.restore();
+
+            // 3. Descarga de la imagen como .png
+            const link = document.createElement('a');
+            link.download = 'rosa-amarilla-postal.png';
+            link.href = postCanvas.toDataURL('image/png');
+            link.click();
+
+            // Notificación visual
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+        });
+
+        // --- BUCLE DE ANIMACIÓN ---
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            const time = clock.getElapsedTime();
+
+            // Balanceo sutil de la flor
+            flowerGroup.rotation.y = Math.sin(time * 0.35) * 0.05;
+            flowerGroup.rotation.z = Math.cos(time * 0.25) * 0.02;
+
+            // Animación orgánica de vuelo y parpadeo de las luciérnagas
+            fireflies.forEach(f => {
+                f.mesh.position.x = f.baseX + Math.sin(time * f.speedX + f.phase) * 0.8;
+                f.mesh.position.y = f.baseY + Math.cos(time * f.speedY + f.phase) * 0.6;
+                f.mesh.position.z = f.baseZ + Math.sin(time * f.speedZ + f.phase) * 0.7;
+
+                // Parpadeo suave biológico
+                const pulse = Math.sin(time * f.blinkFreq + f.phase);
+                f.mesh.material.opacity = 0.2 + 0.8 * Math.pow(Math.max(0, pulse), 2.5);
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
